@@ -169,21 +169,30 @@ class VDFNode {
             tabs += "\t";
         }
         
+        String braceTabs = "";
+        for (int i = 0; i < level - 1; i++) {
+            braceTabs += "\t";
+        }
+        
         if (key != null) {
-            string += tabs + "\t\"" + key + "\" ";
+            string += tabs + "\"" + key + "\" ";
         }
         
         if (value != null) {
             if (value.size() > 0) {
-                string += tabs + "{"; 
+                if (level > 0) {
+                    string += braceTabs + "{";
+                }
                 for (VDFNode node : value) {
                     string += tabs + node.toString() + "\n";
                 }
-                string += tabs + "}";
+                if (level > 0) {
+                    string += braceTabs + "}";
+                }
             //} else if (value.size() == 1) {
             //    string += "\"" + value.get(0).getKey() + "\" \n";
             } else {
-                string += "\n{\n}";
+                string += "{}";
             }
         }
         
