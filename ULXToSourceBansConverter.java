@@ -5,7 +5,7 @@ import java.util.regex.*;
 
 public class ULXToSourceBansConverter {
     public static void main(String[] args) {
-        Path file = Paths.get("D:\\Users\\Nicholas\\Desktop\\NOTES\\ulx bans.txt");
+        Path file = Paths.get("D:\\Users\\Nicholas\\Desktop\\NOTES\\ulx bans1.txt");
         try (InputStream in = Files.newInputStream(file); BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
             int counter = 0;
             int level = 0;
@@ -21,6 +21,7 @@ public class ULXToSourceBansConverter {
                 VDFNode tmp = new VDFNode();
                 tmp.setParentNode(current);
                 String key = null;
+                String value = null;
                 
                 if (line.length() == 0) {
                     //System.out.println("EMPTY LINE");
@@ -43,27 +44,71 @@ public class ULXToSourceBansConverter {
                 } else if (line.charAt(0) == "\"".charAt(0)) {
                     //System.out.println("READ \"");
                     
+                    int endQuotePos = 0;
                     Pattern pattern = Pattern.compile("(?<!\\\\)\"");
                     Matcher matcher = pattern.matcher(line.substring(1));
                     if (matcher.find()) {
-                        key = line.substring(1, matcher.start() + 1);
+                        endQuotePos = matcher.start() + 1;
+                        key = line.substring(1, endQuotePos);
+                        System.out.println("key: " + key);
                     } else {
                         throw new RuntimeException("Closing quote not found on line " + counter + ".");
                     }
                     
-                    tmp.setKey(key);
+                    if (line.length() > endQuotePos + 1) {
+                        line = line.substring(endQuotePos + 1);
+                        System.out.println("endPos: " + line);
+                        
+                        pattern = Pattern.compile("(?<!\\\\)\"");
+                        matcher = pattern.matcher(line.substring(1));
+                        if (matcher.find()) {
+                            endQuotePos = matcher.start() + 1;
+                            value = line.substring(1, endQuotePos);
+                        }
+                        
+                        tmp.setKey(key);
+                        
+                        if (value != null) {
+                            VDFNode valueNode = new VDFNode();
+                            valueNode.setParentNode(current);
+                            valueNode.setLevel(level);
+                            valueNode.setKey(value);
+                            tmp.addChild(valueNode);
+                        }
+                    }
                 } else {
                     //System.out.println("READ [A-Za-z0-9]");
                     
+                    int endQuotePos = 0;
                     Pattern pattern = Pattern.compile("\\w");
                     Matcher matcher = pattern.matcher(line);
                     if (matcher.find()) {
-                        key = line.substring(0, matcher.start());
-                    } else {
-                        throw new RuntimeException("Closing quote not found on line " + counter + ".");
+                        endQuotePos = matcher.start();
+                        key = line.substring(0, endQuotePos);
+                        System.out.println("key2: " + key);
                     }
                     
-                    tmp.setKey(key);
+                    if (line.length() > endQuotePos + 1) {
+                        line = line.substring(endQuotePos + 1);
+                        System.out.println("endPos2: " + line);
+                        
+                        pattern = Pattern.compile("\\w");
+                        matcher = pattern.matcher(line.substring(1));
+                        if (matcher.find()) {
+                            endQuotePos = matcher.start() + 1;
+                            value = line.substring(0, endQuotePos);
+                        }
+                        
+                        tmp.setKey(key);
+                        
+                        if (value != null) {
+                            VDFNode valueNode = new VDFNode();
+                            valueNode.setParentNode(current);
+                            valueNode.setLevel(level);
+                            valueNode.setKey(value);
+                            tmp.addChild(valueNode);
+                        }
+                    }
                 }
                 
                 //System.out.println(key);
@@ -189,8 +234,8 @@ class VDFNode {
                 if (level > 0) {
                     string += braceTabs + "}";
                 }
-            //} else if (value.size() == 1) {
-            //    string += "\"" + value.get(0).getKey() + "\" \n";
+                //} else if (value.size() == 1) {
+                //    string += "\"" + value.get(0).getKey() + "\" \n";
             } else {
                 string += "{}";
             }
