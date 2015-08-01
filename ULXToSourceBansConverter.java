@@ -5,190 +5,140 @@ import java.util.regex.*;
 
 public class ULXToSourceBansConverter {
     public static void main(String[] args) {
-        Path file = Paths.get("D:\\Users\\Nicholas\\Desktop\\NOTES\\ulx bans1.txt");
-        try (InputStream in = Files.newInputStream(file); BufferedReader reader = new BufferedReader(new InputStreamReader(in))) {
-            int counter = 0;
-            int level = 0;
-            
-            String line = null;
-            VDFNode current = new VDFNode();
-            current.setLevel(level);
-            
-            while ((line = reader.readLine()) != null) {
-                counter++;
-                line = line.trim();
+        // SELECT GROUP_CONCAT(CONCAT("admins.put(\"", authid, "\",", aid, ");\n")) FROM steam_sourcebans.sb_admins;
+        Map<String, Integer> admins = new HashMap<>();
+        admins.put("STEAM_ID_SERVER",0);
+        admins.put("STEAM_0:1:7366484",1);
+        
+        try {
+            PrintWriter writer = new PrintWriter("insert-ulx-bans.sql", "UTF-8");
+            VDFNode document = VDFNode.parseVDF("D:\\Users\\Nicholas\\Desktop\\NOTES\\ulx bans1.txt");
+            for (Map.Entry<String, VDFNode> keygroup : document.getChildren().entrySet()) {
+                String steamID = keygroup.getKey();
+                String reason = "";
+                String admin = "";
+                Long unban = 0L;
+                Long time = 0L;
+                String name = "";
+                String modifiedAdmin = "";
                 
-                VDFNode tmp = new VDFNode();
-                tmp.setParentNode(current);
-                String key = null;
-                String value = null;
-                
-                if (line.length() == 0) {
-                    //System.out.println("EMPTY LINE");
-                    continue;
-                } else if (line.charAt(0) == "{".charAt(0)) {
-                    level++;
-                    //System.out.println("READ {");
-                    
-                    //System.out.println(current);
-                    
-                    VDFNode next = new VDFNode();
-                    next.setParentNode(current);
-                    next.setLevel(level);
-                    current.addChild(next);
-                    current = next;
-                } else if (line.charAt(0) == "}".charAt(0)) {
-                    level--;
-                    //System.out.println("READ }");
-                    current = current.getParentNode();
-                } else if (line.charAt(0) == "\"".charAt(0)) {
-                    //System.out.println("READ \"");
-                    
-                    int endQuotePos = 0;
-                    Pattern pattern = Pattern.compile("(?<!\\\\)\"");
-                    Matcher matcher = pattern.matcher(line.substring(1));
-                    if (matcher.find()) {
-                        endQuotePos = matcher.start() + 1;
-                        key = line.substring(1, endQuotePos);
-                        System.out.println("key: " + key);
-                    } else {
-                        throw new RuntimeException("Closing quote not found on line " + counter + ".");
-                    }
-                    
-                    if (line.length() > endQuotePos + 1) {
-                        line = line.substring(endQuotePos + 1);
-                        System.out.println("endPos: " + line);
-                        
-                        pattern = Pattern.compile("(?<!\\\\)\"");
-                        matcher = pattern.matcher(line.substring(1));
-                        if (matcher.find()) {
-                            endQuotePos = matcher.start() + 1;
-                            value = line.substring(1, endQuotePos);
-                        }
-                        
-                        tmp.setKey(key);
-                        
-                        if (value != null) {
-                            VDFNode valueNode = new VDFNode();
-                            valueNode.setParentNode(current);
-                            valueNode.setLevel(level);
-                            valueNode.setKey(value);
-                            tmp.addChild(valueNode);
-                        }
-                    }
-                } else {
-                    //System.out.println("READ [A-Za-z0-9]");
-                    
-                    int endQuotePos = 0;
-                    Pattern pattern = Pattern.compile("\\w");
-                    Matcher matcher = pattern.matcher(line);
-                    if (matcher.find()) {
-                        endQuotePos = matcher.start();
-                        key = line.substring(0, endQuotePos);
-                        System.out.println("key2: " + key);
-                    }
-                    
-                    if (line.length() > endQuotePos + 1) {
-                        line = line.substring(endQuotePos + 1);
-                        System.out.println("endPos2: " + line);
-                        
-                        pattern = Pattern.compile("\\w");
-                        matcher = pattern.matcher(line.substring(1));
-                        if (matcher.find()) {
-                            endQuotePos = matcher.start() + 1;
-                            value = line.substring(0, endQuotePos);
-                        }
-                        
-                        tmp.setKey(key);
-                        
-                        if (value != null) {
-                            VDFNode valueNode = new VDFNode();
-                            valueNode.setParentNode(current);
-                            valueNode.setLevel(level);
-                            valueNode.setKey(value);
-                            tmp.addChild(valueNode);
-                        }
+                VDFNode attributesNode = keygroup.getValue();
+                for (Map.Entry<String, VDFNode> attributes : attributesNode.getChildren().entrySet()) {
+                    switch (attributes.getKey()) {
+                        case "reason":
+                            reason = attributes.getValue().getValue();
+                            break;
+                            
+                        case "admin":
+                            admin = attributes.getValue().getValue();
+                            break;
+                            
+                        case "unban":
+                            unban = Long.parseLong(attributes.getValue().getValue());
+                            break;
+                            
+                        case "time":
+                            time = Long.parseLong(attributes.getValue().getValue());
+                            break;
+                            
+                        case "name":
+                            name = attributes.getValue().getValue();
+                            break;
+                            
+                        case "modified_admin":
+                            modifiedAdmin = attributes.getValue().getValue();
+                            break;
                     }
                 }
                 
-                //System.out.println(key);
+                String adminSteamID = "";
+                adminSteamID = admin.substring(admin.lastIndexOf("(") + 1, admin.lastIndexOf(")"));
                 
-                current.addChild(tmp);
+                Integer adminID = admins.get(adminSteamID);
+                if (adminID == null) {
+                    throw new RuntimeException("Admin ID for SteamID " + adminSteamID + " does not exist.");
+                }
+                
+                Long length = unban - time;
+                
+                Long removedBy = null;
+                String removeType = null;
+                Long removedOn = null;
+                
+                if (unban.equals(0L)) {
+                    unban = time;
+                    length = 0L;
+                } else {
+                    removedBy = 0L;
+                    removeType = "E";
+                    removedOn = unban;
+                }
+                
+                writer.println("INSERT INTO `steam_sourcebans`.`sb_bans`(`ip`,`authid`,`name`,`created`,`ends`,`length`,`reason`,`aid`,`adminIp`,`sid`,`country`,`RemovedBy`,`RemoveType`,`RemovedOn`,`type`,`ureason`) VALUES (" + 
+                               "\"\", " + 
+                               "\"" + steamID + "\", " + 
+                               "\"" + name + "\", " + 
+                               "\"" + time + "\", " + 
+                               "\"" + unban + "\", " + 
+                               "\"" + length + "\", " + 
+                               "\"" + reason + "\", " + 
+                               adminID + ", " + 
+                               "\"\", " + 
+                               "41, " + 
+                               "null, " + 
+                               removedBy + ", " + 
+                               (removeType != null ? "\"" + removeType + "\"" : removeType) + ", " + 
+                               removedOn + ", " + 
+                               "0, " + 
+                               "null" + 
+                               ");");
             }
-            
-            System.out.println(current);
-        } catch (IOException x) {
-            System.err.println(x);
+            writer.close();
+            System.out.println("Finished!");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
 
-/*class VDFDocument {
- private List<VDFNode> nodes = new ArrayList<>();
- 
- public List<VDFNode> getNodes() {
- return this.nodes;
- }
- 
- public VDFDocument addNode(VDFNode node) {
- nodes.add(node);
- return this;
- }
- 
- public VDFDocument setNodes(List<VDFNode> nodes) {
- this.nodes = nodes;
- return this;
- }
- 
- public String toString() {
- String string = "";
- for (VDFNode node : nodes) {
- string += node.toString() + "\n"'
- }
- return string.trim();
- }
- }*/
-
 class VDFNode {
-    private VDFNode parentNode = null;
-    private String key = null;
-    private List<VDFNode> value = null;
+    private VDFNode parent = null;
+    private Map<String, VDFNode> children = null;
     private int level = 0;
     
     public VDFNode() { }
     
-    public VDFNode getParentNode() {
-        return parentNode;
+    public VDFNode getParent() {
+        return parent;
     }
     
-    public VDFNode setParentNode(VDFNode node) {
-        this.parentNode = node;
+    public VDFNode setParent(VDFNode parent) {
+        this.parent = parent;
         return this;
     }
     
-    public String getKey() {
-        return key;
+    public Map<String, VDFNode> getChildren() {
+        return children;
     }
     
-    public VDFNode setKey(String key) {
-        this.key = key;
-        return this;
+    public String getValue() {
+        for (Map.Entry<String, VDFNode> child : children.entrySet()) {
+            return child.getKey();
+        }
+        return "";
     }
     
     public VDFNode setValue(String string) {
-        value = new ArrayList<VDFNode>();
-        VDFNode tmp = new VDFNode();
-        tmp.setKey(string);
-        value.add(tmp);
-        
+        children = new LinkedHashMap<String, VDFNode>();
+        children.put(string, null);
         return this;
     }
     
-    public VDFNode addChild(VDFNode child) {
-        if (value == null) {
-            value = new ArrayList<VDFNode>();
+    public VDFNode addChild(String key, VDFNode value) {
+        if (children == null) {
+            children = new LinkedHashMap<String, VDFNode>();
         }
-        value.add(child);
+        children.put(key, value);
         return this;
     }
     
@@ -202,45 +152,172 @@ class VDFNode {
     }
     
     public String toString() {
-        //if (key != null) 
-        //System.out.println(key);
-        //if (value != null)
-        //System.out.println(value.toString());
-        
         String string = "";
         
-        String tabs = "";
-        for (int i = 0; i < level; i++) {
-            tabs += "\t";
-        }
-        
-        String braceTabs = "";
-        for (int i = 0; i < level - 1; i++) {
-            braceTabs += "\t";
-        }
-        
-        if (key != null) {
-            string += tabs + "\"" + key + "\" ";
-        }
-        
-        if (value != null) {
-            if (value.size() > 0) {
-                if (level > 0) {
-                    string += braceTabs + "{";
-                }
-                for (VDFNode node : value) {
-                    string += tabs + node.toString() + "\n";
-                }
-                if (level > 0) {
-                    string += braceTabs + "}";
-                }
-                //} else if (value.size() == 1) {
-                //    string += "\"" + value.get(0).getKey() + "\" \n";
-            } else {
-                string += "{}";
+        if (parent == null) {
+            for (Map.Entry<String, VDFNode> entry : children.entrySet()) {
+                string += "\"" + entry.getKey() + "\" " + entry.getValue().toString();
             }
+        } else if (children != null) {
+            String tabs = "";
+            String braceTabs = "";
+            for (int i = 0; i < level; i++) {
+                tabs += "\t";
+                if (i != level - 1) {
+                    braceTabs += "\t";
+                }
+            }
+            
+            if (children.size() == 1) {
+                for (Map.Entry<String, VDFNode> entry : children.entrySet()) {
+                    if (entry.getValue() == null) {
+                        return "\t\"" + entry.getKey() + "\"\n";
+                    }
+                }
+                string += "\n";
+            } else {
+                string += "\n";
+            }
+            
+            string += braceTabs + "{\n";
+            for (Map.Entry<String, VDFNode> entry : children.entrySet()) {
+                string += tabs + "\"" + entry.getKey() + "\" " + entry.getValue().toString();
+            }
+            string += braceTabs + "}\n";
         }
         
         return string;
+    }
+    
+    public static VDFNode parseVDF(String path) {
+        File file = new File(path);
+        if (!file.exists()) {
+            System.out.println(path + " does not exist.");
+            return null;
+        }
+        
+        if (!(file.isFile() && file.canRead())) {
+            System.out.println(file.getName() + " cannot be read from.");
+            return null;
+        }
+        
+        try {
+            InputStreamReader fis = new InputStreamReader(new FileInputStream(path), "UTF-8");
+            
+            VDFNode current = new VDFNode();
+            int level = 0;
+            
+            boolean quotedStringOpen = false;
+            boolean unboundStringOpen = false;
+            
+            String key = null;
+            String value = null;
+            StringBuffer buffer = new StringBuffer();
+            
+            char lastPointer = '\0';
+            char pointer = 0;
+            while (pointer != -1) {
+                int b = fis.read();
+                if (b == -1) {
+                    break;
+                }
+                
+                pointer = (char) b;
+                
+                String pointerString = Character.toString(pointer);
+                
+                if (quotedStringOpen) {
+                    if (("\"".equals(pointerString) && !"\\".equals(Character.toString(lastPointer))) || 
+                        "\r".equals(pointerString) || 
+                        "\n".equals(pointerString)
+                       ) {
+                        if (key == null) {
+                            key = buffer.toString();
+                            buffer = new StringBuffer();
+                        } else if (value == null) {
+                            value = buffer.toString();
+                            buffer = new StringBuffer();
+                        }
+                        
+                        if (key != null && value != null) {
+                            VDFNode child = new VDFNode();
+                            child.setParent(current);
+                            child.setValue(value);
+                            child.setLevel(level);
+                            current.addChild(key, child);
+                            
+                            key = null;
+                            value = null;
+                        }
+                        
+                        quotedStringOpen = false;
+                    } else {
+                        buffer.append(pointer);
+                    }
+                } else if (unboundStringOpen) {
+                    if (pointerString.matches("\\s")) {
+                        if (key == null) {
+                            key = buffer.toString();
+                            buffer = new StringBuffer();
+                        } else if (value == null) {
+                            value = buffer.toString();
+                            buffer = new StringBuffer();
+                        }
+                        
+                        if (key != null && value != null) {
+                            VDFNode child = new VDFNode();
+                            child.setParent(current);
+                            child.setValue(value);
+                            child.setLevel(level);
+                            current.addChild(key, child);
+                            
+                            key = null;
+                            value = null;
+                        }
+                        
+                        unboundStringOpen = false;
+                    } else {
+                        buffer.append(pointer);
+                    }
+                } else {
+                    if (pointerString.equals("{")) {
+                        if (key == null) {
+                            System.out.println(current);
+                            throw new RuntimeException("Keygroup began without key.");
+                        }
+                        
+                        level++;
+                        
+                        VDFNode child = new VDFNode();
+                        child.setParent(current);
+                        child.setLevel(level);
+                        current.addChild(key, child);
+                        current = child;
+                        
+                        key = null;
+                    } else if (pointerString.equals("}")) {
+                        if (key != null || value != null) {
+                            System.out.println(current);
+                            throw new RuntimeException("Key without matching value in keygroup.");
+                        }
+                        
+                        level--;
+                        
+                        current = current.getParent();
+                    } else if (pointerString.matches("\"")) {
+                        quotedStringOpen = true;
+                    } else if (pointerString.matches("\\S")) {
+                        buffer.append(pointer);
+                        unboundStringOpen = true;
+                    }
+                }
+                
+                lastPointer = pointer;
+            }
+            
+            return current;
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
