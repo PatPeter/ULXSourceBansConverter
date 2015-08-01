@@ -12,7 +12,7 @@ public class ULXToSourceBansConverter {
         
         try {
             PrintWriter writer = new PrintWriter("insert-ulx-bans.sql", "UTF-8");
-            VDFNode document = VDFNode.parseVDF("D:\\Users\\Nicholas\\Desktop\\NOTES\\ulx bans1.txt");
+            VDFNode document = VDFNode.parseVDF("C:\\Users\\Public\\Desktop\\bans.txt");
             for (Map.Entry<String, VDFNode> keygroup : document.getChildren().entrySet()) {
                 String steamID = keygroup.getKey();
                 String reason = "";
